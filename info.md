@@ -130,3 +130,26 @@ GROUP BY
     pbxs.id;
     
 ```
+
+## Getting All Invalid Leads
+
+> With the help of this querry we will get the all data_with phone number with source also within a certain date and time
+
+```
+  SELECT 
+    s.name ,
+     sa.created_at as Source_allocation_Date,
+    l.phone_number AS total_invalid_Leads
+    
+FROM leads l
+LEFT JOIN source_allocations sa 
+    ON l.source_allocation_id = sa.id
+LEFT JOIN sources s
+    ON sa.source_id = s.id
+WHERE l.status = ('INVALID')
+    AND sa.created_at >= '2025-12-01' 
+    AND sa.created_at < '2026-01-01'
+GROUP BY s.id, l.id, sa.id
+ORDER BY s.name ASC; 
+
+```
