@@ -218,3 +218,20 @@ GROUP BY
     pbxs.id
 ORDER BY c.name ASC;
 ```
+
+## Find the [user's id, user's name, member id, member name] By UserID
+
+```
+    SELECT 
+        u.id AS User_Id,
+        u.username AS User_Name,
+        m.id AS Member_Id,
+        m.type AS Member_Type
+    FROM users u
+        LEFT JOIN members m
+        ON u.id = m.user_id 
+    
+    WHERE u.username = 'nahuma_nazar'
+    ORDER BY u.username ASC;
+ 
+```
