@@ -185,4 +185,36 @@ WhERE c.name = 'Al thiqa'
 GROUP BY 
     c.id,
     pbxs.id;
-    ```
+```
+
+ ## Find the company and the all extensions in it by using the [PBX_NAME]
+
+ ```
+ SELECT 
+    pbxs.PBX_Name,
+    c.name AS Company_Name,
+    COUNT(DISTINCT pbxs.id) AS Total_PBX,
+    COUNT(e.id) AS Total_Extensions,
+    COUNT (
+        CASE
+            WHEN e.state = 'ASSIGNED'
+            THEN e.id
+            end
+        )AS Total_Assigned_Extensions,
+    COUNT (
+        CASE
+            WHEN e.state = 'UNASSIGNED'
+            THEN e.id
+            end
+        ) AS Total_Unassigned_Extensions 
+FROM companies c
+LEFT JOIN pbx_systems pbxs
+    ON c.id = pbxs.company_id
+LEFT JOIN extensions e
+    ON pbxs.id = e.pbx_system_id
+    where pbxs.PBX_Name in ('KCM Ambitions - Location Wings','Thiqa')
+GROUP BY 
+    c.id,
+    pbxs.id
+ORDER BY c.name ASC;
+```
