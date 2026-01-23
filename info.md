@@ -153,3 +153,36 @@ GROUP BY s.id, l.id, sa.id
 ORDER BY s.name ASC; 
 
 ```
+
+## FIND ALL PBX IN A PBX HOW MUCH EXTENTIONS BY a Certain Copany
+
+   ```
+        SELECT 
+    c.name AS Company_Name,
+    pbxs.PBX_Name,
+    COUNT(DISTINCT pbxs.id) AS Total_PBX,
+    COUNT(e.id) AS Total_Extensions,
+    COUNT (
+        CASE
+            WHEN e.state = 'ASSIGNED'
+            THEN e.id
+            end
+        )AS Total_Assigned_Extensions,
+    COUNT (
+        CASE
+            WHEN e.state = 'UNASSIGNED'
+            THEN e.id
+            end
+        ) AS Total_Unassigned_Extensions 
+FROM companies c
+LEFT JOIN pbx_systems pbxs
+    ON c.id = pbxs.company_id
+LEFT JOIN extensions e
+    ON pbxs.id = e.pbx_system_id
+WhERE c.name = 'Al thiqa'
+    -- AND pbxs.id = c.id
+    -- AND pbxs.PBX_Name = 'Thiqa'
+GROUP BY 
+    c.id,
+    pbxs.id;
+    ```
