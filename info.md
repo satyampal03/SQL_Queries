@@ -235,3 +235,68 @@ ORDER BY c.name ASC;
     ORDER BY u.username ASC;
  
 ```
+## Get All Overview of Companies members list 
+
+```
+ SELECT 
+    c.name AS Company_Name,
+    
+     COUNT(
+            *
+        ) AS All_Members,
+    
+        COUNT(
+        CASE 
+            WHEN 
+                m.type = 'SUPER_ADMIN'
+            THEN  1
+            END
+        ) AS Super_Admins,
+        
+    COUNT(
+        CASE 
+            WHEN 
+                m.type = 'ADMIN'
+            THEN  1
+            END
+        ) AS Admins,
+    
+    COUNT(
+        CASE 
+            WHEN 
+                m.type = 'MANAGER'
+            THEN  1
+            END
+        ) AS Managers,
+        
+    COUNT(
+        CASE 
+            WHEN 
+                m.type = 'AGENT'
+            THEN  1
+            END
+        ) AS Agents,
+    
+    COUNT(
+        CASE 
+            WHEN 
+                m.type = 'RM'
+            THEN  1
+            END
+        ) AS RMs,
+    
+    COUNT(
+        CASE 
+            WHEN 
+                m.type = 'MACHINE'
+            THEN 1
+            END
+        ) AS Machines
+    
+    FROM companies c
+    LEFT JOIN members m
+        ON c.id = m.company_id
+        
+    GROUP BY c.id;
+
+    ```
