@@ -299,4 +299,42 @@ ORDER BY c.name ASC;
         
     GROUP BY c.id;
 
-    ```
+  ```
+
+
+  ## Get the ORG - Overwiev total list members by its member_type
+
+  ```
+  SELECT 
+    -- Use COALESCE to replace the NULL rollup row with a "Grand Total" label
+    COALESCE(c.name, 'GRAND TOTAL')
+    AS Company_Name,
+    
+    COUNT(*)
+    AS All_Members,
+    
+    COUNT(CASE WHEN m.type = 'SUPER_ADMIN' THEN 1 END)
+    AS Super_Admins,
+    
+    COUNT(CASE WHEN m.type = 'ADMIN' THEN 1 END)
+    AS Admins,
+    
+    COUNT(CASE WHEN m.type = 'MANAGER' THEN 1 END)
+    AS Managers,
+    
+    COUNT(CASE WHEN m.type = 'AGENT' THEN 1 END)
+    AS Agents,
+    
+    COUNT(CASE WHEN m.type = 'RM' THEN 1 END)
+    AS RMs,
+    
+    COUNT(CASE WHEN m.type = 'MACHINE' THEN 1 END)
+    AS Machines
+    
+FROM companies c
+LEFT JOIN members m ON c.id = m.company_id
+    WHERE m.is_active = 'true'
+-- Removed the extra comma and formatted for standard SQL
+GROUP BY ROLLUP (c.name); 
+
+```
