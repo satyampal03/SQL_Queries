@@ -372,3 +372,48 @@ GROUP BY
 ORDER BY c.name ASC;
 
 ```
+
+## Managers and Agents Relations
+```
+ WITH manager_data AS (
+        SELECT 
+            m.manager_id,
+            u.name AS manager_name,
+            COUNT(*) AS total_agents,
+            SUM(CASE WHEN m.is_active IS TRUE THEN 1 ELSE 0 END) AS active_agents,
+            SUM(CASE WHEN m.is_active IS FALSE THEN 1 ELSE 0 END) AS inactive_agents
+        FROM 
+            public.members m
+        JOIN 
+            public.users u ON m.manager_id = u.id
+        WHERE 
+            m.type = 'AGENT'
+            AND m.company_id = '1'
+            [[AND u.name = {{manager_name}}]]
+            [[AND m.created_at >= {{start_date}}]]
+            [[AND m.created_at <= {{end_date}}]]
+            [[AND EXISTS (
+                SELECT 1
+                FROM users agent
+                WHERE agent.id = m.user_id
+                AND agent.name = {{agent_name}}
+            )]]
+        GROUP BY 
+            m.manager_id, u.name
+    )
+    SELECT
+        ROW_NUMBER() OVER (ORDER BY md.total_agents DESC, md.manager_name) AS "S.No.",
+        md.manager_name AS "Manager",
+        md.total_agents AS "Total Agents",
+        md.active_agents AS "Active Agents",
+        md.inactive_agents AS "Inactive Agents",
+        CASE 
+            WHEN md.total_agents = 0 THEN 0
+            ELSE ROUND((md.active_agents::numeric / md.total_agents) * 100, 2)
+        END AS "Active Agents (%)"
+    FROM
+        manager_data md
+    ORDER BY
+        md.total_agents DESC, md.manager_name;
+
+```
