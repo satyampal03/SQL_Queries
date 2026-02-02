@@ -417,3 +417,44 @@ ORDER BY c.name ASC;
         md.total_agents DESC, md.manager_name;
 
 ```
+
+## Get User Details by -- User_name OR name
+
+```
+SELECT 
+ 
+ u.username AS username,
+ u.password,
+ u.name AS Name,
+--  u.id AS User_ID,
+--  m.id AS Member_ID,
+ m.phone_number AS Phone_Number,
+ c.name AS Company_Name,
+ pbxs.PBX_Name AS PBX_Name,
+ e.code AS Extension_Number
+ 
+FROM users u
+LEFT JOIN members m
+ ON u.id = m.User_ID
+LEFT JOIN companies c
+ ON c.id = m.company_id
+LEFT JOIN member_extension_relationships mer
+    ON mer.id = m.id
+LEFT JOIN extensions e
+    ON e.id = mer.extension_id
+    
+LEFT JOIN pbx_systems pbxs
+    ON mer.extension_id = pbxs.id
+    
+WHERE u.username = ''
+    OR u.name = 'Keerthana Babu'
+
+GROUP BY
+ u.id,
+ m.id,
+ c.id,
+ mer.id,
+ e.id,
+ pbxs.id;
+
+ ```
