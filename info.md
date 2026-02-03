@@ -458,3 +458,46 @@ GROUP BY
  pbxs.id;
 
  ```
+
+ ## Get the User Details by User Name [name, username, pass, member_type, phoneNumber, Company, PBX, Extension_Code]
+ ```
+ 
+
+SELECT 
+    u.Username AS username,
+    u.password AS User_password,
+    -- m.User_ID AS user_id,
+    u.Name AS User_Name,
+    m.Type AS member_type,
+    m.Phone_Number AS Phone_Number,
+    c.Name AS Company_Name,
+    pbxs.Pbx_Name AS PBX_Name,
+    e.Code AS Extension_Number
+FROM Users u
+LEFT JOIN members m 
+    ON u.ID = m.User_ID
+    
+LEFT JOIN Companies c 
+    ON c.ID = m.Company_ID
+    
+LEFT JOIN Member_Extension_Relationships mer 
+    ON m.ID = mer.Member_ID
+    
+LEFT JOIN Extensions e 
+    ON mer.Extension_ID = e.ID
+LEFT JOIN Pbx_Systems pbxs 
+    ON e.Pbx_System_ID = pbxs.ID
+WHERE u.Username = '' 
+   OR u.Name = 'AKASH'
+GROUP BY 
+    u.Username, 
+    m.User_ID, 
+    u.Name, 
+    m.Type, 
+    m.Phone_Number,
+    c.Name, 
+    pbxs.Pbx_Name, 
+    e.Code,
+    u.password
+    limit 1;
+  ```
