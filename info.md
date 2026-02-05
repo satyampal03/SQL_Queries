@@ -501,3 +501,21 @@ GROUP BY
     u.password
     limit 1;
   ```
+
+
+  ## GET TOTAL INVAILD LEADS BY SOURCE NAME 
+
+ ```
+ SELECT 
+    COALESCE(s.name, 'GRAND TOTAL') AS source_name,
+    COUNT(l.phone_number) AS total_invalid_leads
+FROM leads l
+LEFT JOIN source_allocations sa 
+    ON l.source_allocation_id = sa.id
+LEFT JOIN sources s
+    ON sa.source_id = s.id
+WHERE l.status = 'INVALID'
+    AND l.last_call_datetime >= '2025-12-01' 
+    AND l.last_call_datetime < '2026-01-01'
+GROUP BY ROLLUP (s.name);
+```
