@@ -519,3 +519,45 @@ WHERE l.status = 'INVALID'
     AND l.last_call_datetime < '2026-01-01'
 GROUP BY ROLLUP (s.name);
 ```
+
+
+## DNCR_INVALID Leads Querry 
+
+> Want to get the invalid and dncr data from database 
+>> You need to change date all there,
+
+```
+
+SELECT 
+    s.name AS Sourse_Name,
+    sa.number_of_leads AS Total_leads,
+    
+    COUNT(
+        CASE 
+            WHEN l.status = 'DNCR'
+             AND sa.created_at >= '2026-01-01'
+             AND sa.created_at <  '2026-01-31'
+            THEN l.phone_number
+        END
+    ) AS total_dncr_leads,
+
+    COUNT(
+        CASE 
+            WHEN l.status = 'INVALID'
+             AND sa.created_at >= '2026-01-01'
+             AND sa.created_at <  '2026-01-31'
+            THEN l.phone_number
+        END
+    ) AS total_invalid_leads,
+    sa.created_at
+
+FROM leads l
+LEFT JOIN source_allocations sa 
+    ON l.source_allocation_id = sa.id
+LEFT JOIN sources s
+    ON sa.source_id = s.id
+WHERE sa.created_at >= '2026-01-01'
+             AND sa.created_at <  '2026-01-31'
+GROUP BY s.name,sa.id
+ORDER BY sa.created_at ;
+```
