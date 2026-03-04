@@ -29,7 +29,7 @@ GROUP BY s.id
 >>[ AND s.name LIKE '%wasim%'] --> this is the Like word If we want to select like word
 
 ```
-SELECT 
+SELECT  
     s.name,
     COUNT(l.phone_number) AS total_invalid_Leads,
     s.created_at
@@ -560,4 +560,36 @@ WHERE sa.created_at >= '2026-01-01'
              AND sa.created_at <  '2026-01-31'
 GROUP BY s.name,sa.id
 ORDER BY sa.created_at ;
+```
+
+
+# RM_CLIENTS DETAILS 
+
+```
+SELECT 
+    rm.id AS RM_Client_ID,
+    rm.account_number AS Client_Account_Number,
+    rm.name AS Client_Name,
+    u.name AS RM_Name, -- This is the Name fetched from the Users table
+    rm.phone_number AS Client_Phone_Number,
+    rm.email AS Client_Email,
+    rm.nationality AS Client_Nationality,
+    rm.is_active AS Status,
+    rm.initial_amount,
+    rm.backfilled_total_redeposit_amount,
+    rm.backfilled_total_withdrawal_amount,
+    rm.platform_name,
+    rm.mt5_account_number,
+    rm.created_at,
+    rm.updated_at,
+    rm.initial_credit
+FROM rm_clients rm
+-- 1. Connect Client to Organization
+JOIN organizations org ON org.id = rm.organization_id
+-- 2. Connect Client to Members table using member_id
+LEFT JOIN members m ON m.id = rm.member_id
+-- 3. Connect Members to Users table to get the RM's Name
+LEFT JOIN users u ON u.id = m.user_id
+WHERE org.id = 6;
+
 ```
