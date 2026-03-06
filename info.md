@@ -593,3 +593,21 @@ LEFT JOIN users u ON u.id = m.user_id
 WHERE org.id = 6;
 
 ```
+
+
+# Get user details with specific member type
+```
+ SELECT 
+        u.name As Name,
+        u.id AS User_Id,
+        u.username AS User_Name,
+        m.id AS Member_Id,
+        m.type AS Member_Type
+    FROM users u
+        LEFT JOIN members m
+        ON u.id = m.user_id 
+    
+    WHERE m.type = 'RM'
+    ORDER BY u.username ASC;
+
+```
