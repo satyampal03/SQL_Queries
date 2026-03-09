@@ -611,3 +611,68 @@ WHERE org.id = 6;
     ORDER BY u.username ASC;
 
 ```
+
+
+# Get All Active clients with Reffered_by with Level.
+```
+
+WITH RECURSIVE
+  ReferralHierarchy AS (
+    -- Anchor Member: Start with clients who were NOT referred by anyone (Level 0)
+    -- Or you can set a specific starting point in the WHERE clause
+    SELECT
+      id,
+      referred_by,
+      0 AS LEVEL
+    FROM
+      rm_clients
+    WHERE
+      referred_by IS NULL
+      AND organization_id = 6
+    UNION ALL
+    -- Recursive Member: Join the table back to the CTE to increment levels
+    SELECT
+      child.id,
+      child.referred_by,
+      parent.level + 1
+    FROM
+      rm_clients child
+      INNER JOIN ReferralHierarchy parent ON child.referred_by = parent.id
+  )
+SELECT
+  rm.account_number AS Client_Account_Number,
+  rm.name AS Client_Name,
+  u.name AS RM_Name,
+  rm.id AS RM_Client_ID,
+  rm.phone_number AS Client_Phone_Number,
+  rm.email AS Client_Email,
+  rm.nationality AS Client_Nationality,
+  rm.initial_amount AS initial_amount,
+  rm.backfilled_total_redeposit_amount AS BackFilled_Total_redeposit,
+  rm.backfilled_total_withdrawal_amount AS BackFilled_Total_withdraw,
+  rm.platform_name AS Platform_Name,
+  rm.mt5_account_number AS mt5_Account,
+  rm.created_at AS Created_At,
+  rm.updated_at AS Updated_At,
+  rm.initial_credit AS initial_Credit,
+  rm.is_active AS Status,
+  -- Added Referrer Information
+  REF.name AS Referrer_Name,
+  REF.account_number AS Referrer_Account_Number,
+  rh.level AS Referral_Level
+FROM
+  rm_clients rm
+  -- Join the CTE to get the calculated level
+  JOIN ReferralHierarchy rh ON rm.id = rh.id
+  JOIN organizations org ON org.id = rm.organization_id
+  LEFT JOIN members m ON m.id = rm.member_id
+  LEFT JOIN users u ON u.id = m.user_id
+  LEFT JOIN rm_clients REF ON rm.referred_by = REF.id
+WHERE
+  org.id = 6
+  AND rm.is_active = 'true'
+ORDER BY
+  rh.level ASC,
+  rm.name ASC;
+
+ ```
