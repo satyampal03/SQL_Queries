@@ -676,3 +676,21 @@ ORDER BY
   rm.name ASC;
 
  ```
+
+
+ # Get Agent All Saved_Leads
+```
+SELECT 
+    -- COUNT(DISTINCT l.id) AS Total_Leads
+    l.name AS Lead_Name,
+  l.phone_number AS Lead_Phone_Number,
+  l.last_call_datetime AS Last_Call_DateTime,
+  u.name AS User_Name,
+  l.Status AS Status
+FROM users u
+JOIN members m ON u.id = m.user_id
+JOIN call_attempts ca ON m.id = ca.member_id
+JOIN leads l ON ca.lead_id = l.id
+WHERE u.username = 'santosh_aparna' 
+  AND l.Status IN ('CANVAS', 'CANVAS_PLUS', 'HOT_LEAD');
+```
