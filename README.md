@@ -694,3 +694,95 @@ JOIN leads l ON ca.lead_id = l.id
 WHERE u.username = 'santosh_aparna' 
   AND l.Status IN ('CANVAS', 'CANVAS_PLUS', 'HOT_LEAD');
 ```
+# Get all redeposite, initial deposite, withrawals, active inactive, clients with, rm, manager, agent and client, floor platform every thing.
+
+```
+WITH RECURSIVE
+  ReferralHierarchy AS (
+    -- Anchor Member: Start with clients who were NOT referred by anyone (Level 0)
+    SELECT
+      id,
+      referred_by,
+      0 AS LEVEL
+    FROM
+      rm_clients
+    WHERE
+      referred_by IS NULL
+      AND organization_id = 1
+    UNION ALL
+    -- Recursive Member: Join the table back to the CTE to increment levels
+    SELECT
+      child.id,
+      child.referred_by,
+      parent.level + 1
+    FROM
+      rm_clients child
+      INNER JOIN ReferralHierarchy parent ON child.referred_by = parent.id
+  ),
+  
+  TransactionAggregates AS (
+    SELECT 
+      client_id, 
+      
+      -- Matches 'CREDIT' from your dropdown list
+      SUM(CASE WHEN UPPER(type::text) = 'CREDIT' THEN amount ELSE 0 END) AS calculated_initial_deposit,
+      
+      -- Matches 'RE_DEPOSIT' from your dropdown list
+      SUM(CASE WHEN UPPER(type::text) = 'RE_DEPOSIT' THEN amount ELSE 0 END) AS calculated_redeposit,
+      
+      -- Matches 'WITHDRAWAL' from your dropdown list
+      SUM(CASE WHEN UPPER(type::text) = 'WITHDRAWAL' THEN amount ELSE 0 END) AS calculated_withdrawal
+    FROM 
+      client_entries 
+    GROUP BY 
+      client_id
+  )
+
+SELECT
+rm.floor_name,
+  rm.sales_agent_name,
+  rm.sales_manager_name,
+  rm.account_type AS Account_Type,
+  rm.mt5_account_number AS mt5_Account,
+  rm.account_number AS Client_Account_Number,
+  rm.name AS Client_Name,
+  u.name AS RM_Name,
+  rm.id AS RM_Client_ID,
+  rm.phone_number AS Client_Phone_Number,
+  rm.email AS Client_Email,
+  rm.nationality AS Client_Nationality,
+  
+  COALESCE(ce.calculated_initial_deposit, 0) AS Initial_Deposit_Amount,
+  COALESCE(ce.calculated_redeposit, 0) AS Total_Redeposit_Amount,
+  COALESCE(ce.calculated_withdrawal, 0) AS Total_Withdrawal_Amount,
+  
+  rm.initial_amount AS Legacy_Initial_Amount,
+  rm.backfilled_total_redeposit_amount AS BackFilled_Total_redeposit,
+  rm.backfilled_total_withdrawal_amount AS BackFilled_Total_withdraw,
+  
+  rm.platform_name AS Platform_Name,
+  rm.created_at AS Created_At,
+  rm.updated_at AS Updated_At,
+  rm.initial_credit AS initial_Credit,
+  rm.is_active AS Status,
+  REF.name AS Referrer_Name,
+  REF.account_number AS Referrer_Account_Number,
+  rh.level AS Referral_Level
+FROM
+  rm_clients rm
+  JOIN ReferralHierarchy rh ON rm.id = rh.id
+  JOIN organizations org ON org.id = rm.organization_id
+  
+
+  LEFT JOIN TransactionAggregates ce ON rm.id = ce.client_id
+  
+  LEFT JOIN members m ON m.id = rm.member_id
+  LEFT JOIN users u ON u.id = m.user_id
+  LEFT JOIN rm_clients REF ON rm.referred_by = REF.id
+WHERE
+  org.id = 1
+  AND rm.platform_name = 'TRADERSHUB'
+ORDER BY
+  rh.level ASC,
+  rm.name ASC;
+  ```
