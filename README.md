@@ -852,3 +852,36 @@ ORDER BY
     aud.id ASC
     ;
 ```
+
+# Get the list of manager and and their team 
+
+```
+SELECT
+  companies.name AS Company_Name,
+  m_manager.id AS Manager_ID,
+  u_mgr.name AS Manager_Name,
+  m_manager.type AS Manager_Role,
+  m_team.id AS Agent_ID,
+  u_agt.name AS Agent_Name,
+  m_team.type AS Agent_Role
+FROM
+  companies
+  INNER JOIN members m_manager ON companies.id = m_manager.company_id
+  LEFT JOIN users u_mgr ON m_manager.user_id = u_mgr.id
+  LEFT JOIN members m_team ON companies.id = m_team.company_id
+  AND m_team.id <> m_manager.id
+  LEFT JOIN users u_agt ON m_team.user_id = u_agt.id
+WHERE
+  {{Company_Name}}
+  AND m_manager.is_active = 'true'
+  AND m_team.is_active = 'true'
+  AND m_manager.type = 'MANAGER'
+  AND m_team.type = 'AGENT'
+ORDER BY
+  companies.name ASC,
+  u_mgr.name ASC,
+  u_agt.name ASC
+
+
+  ```
+
