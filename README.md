@@ -786,3 +786,69 @@ ORDER BY
   rh.level ASC,
   rm.name ASC;
   ```
+
+  # Get the QC Report For KCM Ambition Call Center and Remote India, 
+  ```
+  SELECT 
+    -- 1. Date & Record Identifiers
+    DATE(aud.created_at) AS audit_date,
+    aud.id AS audit_id,
+    
+    -- 2. Company Context
+    comp.name AS company_name,
+    
+    -- 3. Staff Profiles (Names)
+    u_agent.name AS agent_name,
+    u_qc.name AS qc_member_name,
+    COALESCE(u_mgr.name, 'No Action Taken') AS actioning_manager_name,
+    
+    -- 4. Audit Scoring & Status
+    aud.audit_type,
+    aud.overall_score,
+    aud.has_hard_fail,
+    aud.is_flagged,
+    aud.flag_type,
+    
+    -- 5. Manager Action Details
+    COALESCE(ma.action_type, 'N/A') AS manager_action,
+    COALESCE(ma.note, 'No Notes') AS manager_coaching_note
+
+FROM qc_audits aud
+
+-- Joins
+LEFT JOIN companies comp ON aud.company_id = comp.id
+
+LEFT JOIN members m_agent ON aud.audited_member_id = m_agent.id
+LEFT JOIN users u_agent ON m_agent.user_id = u_agent.id
+
+LEFT JOIN members m_qc ON aud.qc_member_id = m_qc.id
+LEFT JOIN users u_qc ON m_qc.user_id = u_qc.id
+
+LEFT JOIN qc_manager_actions ma ON aud.id = ma.audit_id
+LEFT JOIN members m_mgr ON ma.actioned_by_member_id = m_mgr.id
+LEFT JOIN users u_mgr ON m_mgr.user_id = u_mgr.id
+
+-- Date & Company Filters
+WHERE aud.created_at >= '2026-06-02 00:00:00' 
+  AND aud.created_at <= '2026-06-03 23:59:59'
+  AND comp.name IN ('KCM ambitions call centers', 'Remote India') -- Fixed operator syntax
+
+-- Grouping
+GROUP BY 
+    aud.created_at, 
+    aud.id, 
+    comp.name, 
+    u_agent.name, 
+    u_qc.name, 
+    u_mgr.name, 
+    aud.audit_type, 
+    aud.overall_score, 
+    aud.has_hard_fail, 
+    aud.is_flagged, 
+    aud.flag_type, 
+    ma.action_type, 
+    ma.note
+ORDER BY 
+    aud.id ASC
+    ;
+```
