@@ -885,3 +885,141 @@ ORDER BY
 
   ```
 
+# all clients details with members and amount, 
+```
+WITH RECURSIVE
+  ReferralHierarchy AS (
+    -- Anchor Member: Start with clients who were NOT referred by anyone (Level 0)
+    SELECT
+      id,
+      referred_by,
+      0 AS LEVEL
+    FROM
+      rm_clients
+    WHERE
+      referred_by IS NULL
+      AND organization_id = 1
+    UNION ALL
+    -- Recursive Member: Join the table back to the CTE to increment levels
+    SELECT
+      child.id,
+      child.referred_by,
+      parent.level + 1
+    FROM
+      rm_clients child
+      INNER JOIN ReferralHierarchy parent ON child.referred_by = parent.id
+  ),
+  
+  TransactionAggregates AS (
+    SELECT 
+      client_id, 
+      SUM(CASE WHEN UPPER(type::text) = 'CREDIT' THEN amount ELSE 0 END) AS calculated_initial_deposit,
+      SUM(CASE WHEN UPPER(type::text) = 'RE_DEPOSIT' THEN amount ELSE 0 END) AS calculated_redeposit,
+      SUM(CASE WHEN UPPER(type::text) = 'WITHDRAWAL' THEN amount ELSE 0 END) AS calculated_withdrawal
+    FROM 
+      client_entries 
+    GROUP BY 
+      client_id
+  ),
+
+  -- Step 1: Filter and pull all detailed matching rows (Active + Inactive)
+  DetailRecords AS (
+    SELECT
+      rm.floor_name,
+      rm.sales_agent_name,
+      rm.sales_manager_name,
+      rm.account_type AS Account_Type,
+      rm.mt5_account_number AS mt5_Account,
+      rm.account_number AS Client_Account_Number,
+      rm.name AS Client_Name,
+      u.name AS RM_Name,
+      rm.id AS RM_Client_ID,
+      rm.phone_number AS Client_Phone_Number,
+      rm.email AS Client_Email,
+      rm.nationality AS Client_Nationality,
+      
+      -- New Aggregated Values
+      COALESCE(ce.calculated_initial_deposit, 0) AS Initial_Deposit_Amount,
+      COALESCE(ce.calculated_redeposit, 0) AS Total_Redeposit_Amount,
+      COALESCE(ce.calculated_withdrawal, 0) AS Total_Withdrawal_Amount,
+      
+      -- Legacy Fields
+      rm.initial_amount AS Legacy_Initial_Amount,
+      rm.backfilled_total_redeposit_amount AS BackFilled_Total_redeposit,
+      rm.backfilled_total_withdrawal_amount AS BackFilled_Total_withdraw,
+      
+      rm.platform_name AS Platform_Name,
+      rm.created_at AS Created_At,
+      rm.updated_at AS Updated_At,
+      rm.initial_credit AS initial_Credit,
+      rm.is_active AS Status, -- This shows true/false in your final report
+      REF.name AS Referrer_Name,
+      REF.account_number AS Referrer_Account_Number,
+      rh.level AS Referral_Level
+    FROM
+      rm_clients rm
+      JOIN ReferralHierarchy rh ON rm.id = rh.id
+      JOIN organizations org ON org.id = rm.organization_id
+      LEFT JOIN TransactionAggregates ce ON rm.id = ce.client_id
+      LEFT JOIN members m ON m.id = rm.member_id
+      LEFT JOIN users u ON u.id = m.user_id
+      LEFT JOIN rm_clients REF ON rm.referred_by = REF.id
+    WHERE
+      org.id = 1
+      -- REMOVED: rm.is_active = 'true' to allow both active and inactive statuses
+      
+      -- Date Filters
+      AND rm.created_at >= '2026-01-01 00:00:00'
+      AND rm.created_at <= '2026-06-18 23:59:59'
+      
+      -- Multi-Platform Filters (Case-Insensitive)
+      AND LOWER(rm.platform_name) IN ('kanak', 'landmark', 'tradershub', 'traders hub')
+  )
+
+-- Step 2: Combine client rows with a calculated total row
+SELECT *, 0 AS sort_order FROM DetailRecords
+
+UNION ALL
+
+SELECT
+  NULL AS floor_name,
+  NULL AS sales_agent_name,
+  NULL AS sales_manager_name,
+  NULL AS Account_Type,
+  NULL AS mt5_Account,
+  CONCAT('TOTAL CLIENTS: ', COUNT(*)) AS Client_Account_Number,
+  '--- TOTALS ---' AS Client_Name,
+  NULL AS RM_Name,
+  NULL AS RM_Client_ID,
+  NULL AS Client_Phone_Number,
+  NULL AS Client_Email,
+  NULL AS Client_Nationality,
+  
+  -- Totals for fields pulling from client_entries
+  SUM(Initial_Deposit_Amount) AS Initial_Deposit_Amount,
+  SUM(Total_Redeposit_Amount) AS Total_Redeposit_Amount,
+  SUM(Total_Withdrawal_Amount) AS Total_Withdrawal_Amount,
+  
+  -- Totals for legacy backfilled fields
+  SUM(Legacy_Initial_Amount) AS Legacy_Initial_Amount,
+  SUM(BackFilled_Total_redeposit) AS BackFilled_Total_redeposit,
+  SUM(BackFilled_Total_withdraw) AS BackFilled_Total_withdraw,
+  
+  NULL AS Platform_Name,
+  NULL AS Created_At,
+  NULL AS Updated_At,
+  SUM(initial_Credit) AS initial_Credit,
+  NULL AS Status,
+  NULL AS Referrer_Name,
+  NULL AS Referrer_Account_Number,
+  NULL AS Referral_Level,
+  1 AS sort_order -- Guarantees total row remains at the absolute bottom
+FROM DetailRecords
+
+-- Final Layout Ordering
+ORDER BY
+  sort_order ASC,
+  Referral_Level ASC,
+  Client_Name ASC;
+
+```
