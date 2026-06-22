@@ -1023,3 +1023,102 @@ ORDER BY
   Client_Name ASC;
 
 ```
+
+
+# Floor wise Clients Data.
+```
+WITH RECURSIVE
+  ReferralHierarchy AS (
+    -- SAFE ANCHOR: Starts with all clients in Org 1 to avoid empty hierarchy collapse
+    SELECT
+      id,
+      referred_by,
+      0 AS LEVEL
+    FROM
+      rm_clients
+    WHERE
+      organization_id = 1
+    
+    UNION ALL
+    
+    SELECT
+      child.id,
+      child.referred_by,
+      parent.level + 1
+    FROM
+      rm_clients child
+      INNER JOIN ReferralHierarchy parent ON child.referred_by = parent.id
+    WHERE parent.level < 10 -- Prevents loop overflows
+  ),
+  
+  TransactionAggregates AS (
+    SELECT 
+      client_id, 
+      SUM(CASE WHEN UPPER(type::text) = 'CREDIT' THEN amount ELSE 0 END) AS calculated_initial_deposit,
+      SUM(CASE WHEN UPPER(type::text) = 'RE_DEPOSIT' THEN amount ELSE 0 END) AS calculated_redeposit,
+      SUM(CASE WHEN UPPER(type::text) = 'WITHDRAWAL' THEN amount ELSE 0 END) AS calculated_withdrawal
+    FROM 
+      client_entries 
+    GROUP BY 
+      client_id
+  )
+
+SELECT
+  COALESCE(MAX(rh.level), 0) AS Referral_Level,
+  rm.floor_name AS Floor_Name,
+  rm.platform_name AS Platform_Name,
+  rm.sales_agent_name AS Sales_Agent_Name,
+  rm.sales_manager_name AS Sales_Manager_Name,
+  COALESCE(u.name, 'No RM Assigned') AS RM_Name,
+  COALESCE(c.name, 'No Company Assigned') AS Company_Name,
+  
+  rm.id AS RM_Client_ID,
+  rm.account_number AS Client_Account_Number,
+  rm.mt5_account_number AS mt5_Account,
+  rm.name AS Client_Name,
+  rm.phone_number AS Client_Phone_Number,
+  rm.email AS Client_Email,
+  rm.nationality AS Client_Nationality,
+  rm.account_type AS Account_Type,
+  rm.is_active AS Status, -- Includes both Active and Inactive states
+  
+  COALESCE(MAX(ce.calculated_initial_deposit), 0) AS Calculated_Initial_Deposit,
+  COALESCE(MAX(ce.calculated_redeposit), 0) AS Calculated_Total_Redeposit,
+  COALESCE(MAX(ce.calculated_withdrawal), 0) AS Calculated_Total_Withdrawal,
+  
+  rm.initial_amount AS Legacy_Initial_Amount,
+  rm.backfilled_total_redeposit_amount AS Backfilled_Total_Redeposit,
+  rm.backfilled_total_withdrawal_amount AS Backfilled_Total_Withdrawal,
+  rm.initial_credit AS Initial_Credit,
+  rm.created_at AS Created_At
+FROM
+  rm_clients rm
+  LEFT JOIN ReferralHierarchy rh ON rm.id = rh.id
+  JOIN organizations org ON org.id = rm.organization_id
+  LEFT JOIN TransactionAggregates ce ON rm.id = ce.client_id
+  
+  -- Structural system connections
+  LEFT JOIN companies c ON c.id = rm.company_id 
+  LEFT JOIN members m ON m.id = rm.member_id
+  LEFT JOIN users u ON u.id = m.user_id
+WHERE
+  org.id = 1
+  -- 1. TARGETED FLOOR FILTER (Case-Insensitive matching for ADCB)
+  AND UPPER(rm.floor_name) = 'ADCB'
+  
+  -- 2. EXACT TIME WINDOWING
+  AND rm.created_at >= '2026-01-01 00:00:00'
+  AND rm.created_at <= '2026-06-20 23:59:59'
+GROUP BY
+  rm.id,
+  rm.floor_name,
+  rm.platform_name,
+  rm.sales_agent_name,
+  rm.sales_manager_name,
+  u.name,
+  c.name,
+  org.id
+ORDER BY
+  Referral_Level ASC,
+  rm.name ASC;
+```
