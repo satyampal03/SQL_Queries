@@ -1122,3 +1122,143 @@ ORDER BY
   Referral_Level ASC,
   rm.name ASC;
 ```
+
+# Get the Manager all Clients Information
+
+```
+WITH RECURSIVE
+  -- 1. Date Range Definition (Previous 6 months till today)
+  DateRange AS (
+    SELECT 
+      (CURRENT_DATE - INTERVAL '6 months')::timestamp AS start_date,
+      CURRENT_TIMESTAMP AS end_date
+  ),
+
+  -- 2. Referral Hierarchy (Fixed with DISTINCT to prevent duplicate hierarchy loops)
+  ReferralHierarchy AS (
+    SELECT DISTINCT
+      id,
+      referred_by,
+      0 AS LEVEL
+    FROM
+      rm_clients, DateRange
+    WHERE
+      referred_by IS NULL
+      AND created_at BETWEEN DateRange.start_date AND DateRange.end_date
+    
+    UNION ALL
+    
+    SELECT DISTINCT
+      child.id,
+      child.referred_by,
+      parent.level + 1
+    FROM
+      rm_clients child
+      INNER JOIN ReferralHierarchy parent ON child.referred_by = parent.id,
+      DateRange
+    WHERE 
+      child.created_at BETWEEN DateRange.start_date AND DateRange.end_date
+  ),
+  
+  -- 3. Transaction Aggregates (Safely grouped by client_id)
+  TransactionAggregates AS (
+    SELECT 
+      client_id, 
+      SUM(CASE WHEN UPPER(type::text) = 'CREDIT' THEN amount ELSE 0 END) AS calculated_initial_deposit,
+      SUM(CASE WHEN UPPER(type::text) = 'RE_DEPOSIT' THEN amount ELSE 0 END) AS calculated_redeposit,
+      SUM(CASE WHEN UPPER(type::text) = 'WITHDRAWAL' THEN amount ELSE 0 END) AS calculated_withdrawal
+    FROM 
+      client_entries, DateRange
+    WHERE
+      created_at BETWEEN DateRange.start_date AND DateRange.end_date
+    GROUP BY 
+      client_id
+  ),
+
+  -- 4. Target Manager Identification (Strictly returns ONE single name row)
+  TargetManager AS (
+    SELECT DISTINCT u.name AS manager_real_name, u.username
+    FROM users u
+    WHERE u.username = 'renju_philip'
+    LIMIT 1
+  )
+
+-- 5. Main Query: Combining Clients, Aggregates, and Team Metrics
+SELECT
+  -- Team Breakdown Counter Fields (Now completely accurate since base rows are unique)
+  COUNT(*) OVER() AS total_clients_from_entire_team,
+  COUNT(*) OVER(PARTITION BY rm.sales_agent_name) AS total_clients_by_this_agent,
+
+  -- Manager & Agent Information
+  (SELECT username FROM TargetManager) AS manager_username,
+  (SELECT manager_real_name FROM TargetManager) AS manager_name,
+  rm.sales_manager_name AS client_logged_manager,
+  rm.sales_agent_name AS sales_agent_name,
+  u.name AS relationship_manager_name,
+  
+  -- Explicit Client Coming / Onboarding Timestamps
+  rm.created_at::date AS client_coming_date,
+  rm.created_at::time AS client_coming_time,
+  rm.created_at AS client_registration_timestamp,
+  
+  -- Global Filter Tracking Windows
+  dr.start_date AS six_months_start_date,
+  dr.end_date AS six_months_end_date,
+  
+  -- Client Information
+  rm.id AS rm_client_id,
+  rm.account_number AS client_account_number,
+  rm.mt5_account_number AS mt5_account,
+  rm.name AS client_name,
+  rm.email AS client_email,
+  rm.phone_number AS client_phone_number,
+  rm.nationality AS client_nationality,
+  rm.account_type AS account_type,
+  rm.platform_name AS platform_name,
+  rm.is_active AS status,
+  
+  -- 6-Month Transaction Metrics
+  COALESCE(ce.calculated_initial_deposit, 0) AS initial_deposit_amount_6m,
+  COALESCE(ce.calculated_redeposit, 0) AS total_redeposit_amount_6m,
+  COALESCE(ce.calculated_withdrawal, 0) AS total_withdrawal_amount_6m,
+  
+  -- Legacy Column Overviews
+  rm.initial_amount AS legacy_initial_amount,
+  rm.backfilled_total_redeposit_amount AS legacy_total_redeposit,
+  rm.backfilled_total_withdrawal_amount AS legacy_total_withdrawal,
+  rm.initial_credit AS initial_credit,
+  
+  -- Referral & Metadata
+  REF.name AS referrer_name,
+  REF.account_number AS referrer_account_number,
+  COALESCE(rh.level, 0) AS referral_level,
+  rm.updated_at AS updated_at
+
+FROM
+  rm_clients rm
+  CROSS JOIN DateRange dr
+  -- Left joins to unique sets ensure row counts do not inflate
+  LEFT JOIN ReferralHierarchy rh ON rm.id = rh.id
+  LEFT JOIN TransactionAggregates ce ON rm.id = ce.client_id
+  LEFT JOIN members m ON m.id = rm.member_id
+  LEFT JOIN users u ON u.id = m.user_id
+  LEFT JOIN rm_clients REF ON rm.referred_by = REF.id
+
+WHERE
+  -- Filter by the Date range requirement
+  rm.created_at BETWEEN dr.start_date AND dr.end_date
+  
+  -- Dynamic Team Target Filter using an EXISTS clause to avoid join multiplication
+  AND EXISTS (
+    SELECT 1 
+    FROM TargetManager tm 
+    WHERE UPPER(rm.sales_manager_name) = UPPER(tm.manager_real_name) 
+       OR UPPER(rm.sales_manager_name) = UPPER(tm.username)
+  )
+
+ORDER BY
+  rm.sales_agent_name ASC,
+  rh.level ASC,
+  rm.name ASC;
+
+```
